@@ -37,6 +37,7 @@ type FlagOptions struct {
 	sandbox          bool
 	sandboxDomain    string
 	sleep            bool
+	sleepType        string
 	path             string
 }
 
@@ -68,9 +69,12 @@ func options() *FlagOptions {
 	sandbox := flag.Bool("sandbox", false, `Enables sandbox evasion using IsDomainJoined calls.`)
 	sandboxDomain := flag.String("sandboxDomain", "", `Enables a domain specific sandbox evasion using IsDomainJoined. Use in conjunction with sandbox flag.`)
 	sleep := flag.Bool("nosleep", false, `Disables the sleep delay before the loader unhooks and executes the shellcode.`)
+	sleepType := flag.String("sleepType", "fibonacci", `Sets the function that will be used to delay execution of loader:
+	[*] time - Uses a basic sleep function to delay execution and evade AV/EDR	
+	[*] fibonacci - Uses fibonacci calculation for first n-digits to delay execution and evade AV/EDR.`)
 	path := flag.String("outpath", "", "The path to put the final Payload/Loader once it's compiled.")
 	flag.Parse()
-	return &FlagOptions{outFile: *outFile, inputFile: *inputFile, URL: *URL, LoaderType: *LoaderType, CommandLoader: *CommandLoader, domain: *domain, password: *password, configfile: *configfile, console: *console, AMSI: *AMSI, ETW: *ETW, Sha: *Sha, ProcessInjection: *ProcessInjection, refresher: *refresher, valid: *valid, sandbox: *sandbox, sandboxDomain: *sandboxDomain, sleep: *sleep, path: *path}
+	return &FlagOptions{outFile: *outFile, inputFile: *inputFile, URL: *URL, LoaderType: *LoaderType, CommandLoader: *CommandLoader, domain: *domain, password: *password, configfile: *configfile, console: *console, AMSI: *AMSI, ETW: *ETW, Sha: *Sha, ProcessInjection: *ProcessInjection, refresher: *refresher, valid: *valid, sandbox: *sandbox, sandboxDomain: *sandboxDomain, sleep: *sleep, sleepType: *sleepType, path: *path}
 }
 
 func execute(opt *FlagOptions, name string) string {
@@ -225,7 +229,7 @@ func main() {
 	b64key := base64.StdEncoding.EncodeToString(key)
 	b64iv := base64.StdEncoding.EncodeToString(iv)
 	fmt.Println("[+] Shellcode Encrypted")
-	name, filename := Loader.CompileFile(b64ciphertext, b64key, b64iv, opt.LoaderType, opt.outFile, opt.refresher, opt.console, opt.sandbox, opt.sandboxDomain, opt.ETW, opt.ProcessInjection, opt.sleep, opt.AMSI)
+	name, filename := Loader.CompileFile(b64ciphertext, b64key, b64iv, opt.LoaderType, opt.outFile, opt.refresher, opt.console, opt.sandbox, opt.sandboxDomain, opt.ETW, opt.ProcessInjection, opt.sleep, opt.sleepType, opt.AMSI)
 	name = execute(opt, name)
 	Loader.CompileLoader(opt.LoaderType, opt.outFile, filename, name, opt.CommandLoader, opt.URL, opt.sandbox, opt.Sha, opt.path)
 
